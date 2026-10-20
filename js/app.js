@@ -84,7 +84,7 @@
   // ---------- scanner ----------
   // Stablecoin bị lọc khỏi bảng Volume đột biến & Breakout (chúng luôn "đột biến"/sát ATH một cách vô nghĩa).
   // Chỉ áp dụng cho 2 bảng đó — KHÔNG lọc ở gainers/losers, watchlist hay nơi nào khác.
-  var STABLECOIN_IDS = ["tether", "usd-coin", "dai", "usds", "ethena-usde", "first-digital-usd", "true-usd", "usdd", "paypal-usd", "usyc", "buidl", "ustb", "usd1", "frax", "liquity-usd", "crvusd", "gho", "usdx-money-usdx", "mountain-protocol-usdm", "usual-usd", "resolv-usr", "ethena-usdtb"];
+  var STABLECOIN_IDS = ["tether", "usd-coin", "dai", "usds", "ethena-usde", "first-digital-usd", "true-usd", "usdd", "paypal-usd", "usyc", "buidl", "ustb", "usd1", "frax", "liquity-usd", "crvusd", "gho", "usdx-money-usdx", "mountain-protocol-usdm", "usual-usd", "resolv-usr", "ethena-usdtb", "hashnote-usyc", "superstate-short-duration-us-government-securities-fund-ustb", "ondo-us-dollar-yield", "falcon-finance"];
   function isStablecoin(c) {
     if (!c) return false;
     if (STABLECOIN_IDS.indexOf(c.id) !== -1) return true;
@@ -106,7 +106,7 @@
     $('gainersBody').innerHTML = miniRows(gainers);
     $('losersBody').innerHTML = miniRows(losers);
     $('spikeBody').innerHTML = miniRows(spikes, function (c) { return (c.total_volume / c.market_cap).toFixed(3); });
-    var breakout = state.markets.filter(function (c) { return !isStablecoin(c) && c.ath_change_percentage != null && c.ath_change_percentage >= -15 && c.ath_change_percentage <= 0; })
+    var breakout = state.markets.filter(function (c) { return !isStablecoin(c) && c.total_volume >= 1000000 && c.ath_change_percentage != null && c.ath_change_percentage >= -15 && c.ath_change_percentage <= 0; })
       .sort(function (a, b) { return b.ath_change_percentage - a.ath_change_percentage; }).slice(0, 10);
     $('breakoutBody').innerHTML = breakout.map(function (c) {
       return '<tr><td><strong>' + esc(c.symbol.toUpperCase()) + '</strong> <span class="sub">' + esc(c.name) + '</span></td><td>' + fmtUsd(c.current_price) + '</td>' +

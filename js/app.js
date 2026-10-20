@@ -82,6 +82,16 @@
   }
 
   // ---------- scanner ----------
+  // Stablecoin bị lọc khỏi bảng Volume đột biến & Breakout (chúng luôn "đột biến"/sát ATH một cách vô nghĩa).
+  // Chỉ áp dụng cho 2 bảng đó — KHÔNG lọc ở gainers/losers, watchlist hay nơi nào khác.
+  var STABLECOIN_IDS = ["tether", "usd-coin", "dai", "usds", "ethena-usde", "first-digital-usd", "true-usd", "usdd", "paypal-usd", "usyc", "buidl", "ustb", "usd1", "frax", "liquity-usd", "crvusd", "gho", "usdx-money-usdx", "mountain-protocol-usdm", "usual-usd", "resolv-usr", "ethena-usdtb"];
+  function isStablecoin(c) {
+    if (!c) return false;
+    if (STABLECOIN_IDS.indexOf(c.id) !== -1) return true;
+    // Heuristic: giá quanh $1.00 (lệch ≤ 0.5%) và gần như không biến động 24h (|%| < 0.5%)
+    var p = c.current_price, ch = c.price_change_percentage_24h;
+    return p != null && ch != null && Math.abs(p - 1) <= 0.005 && Math.abs(ch) < 0.5;
+  }
   function miniRows(list, extra) {
     return list.map(function (c) {
       return '<tr><td><strong>' + esc(c.symbol.toUpperCase()) + '</strong> <span class="sub">' + esc(c.name) + '</span></td><td>' + fmtUsd(c.current_price) + '</td><td class="' + (extra ? '' : pctClass(c.price_change_percentage_24h)) + '">' + (extra ? extra(c) : fmtPct(c.price_change_percentage_24h)) + '</td></tr>';
@@ -91,12 +101,12 @@
     var withCh = state.markets.filter(function (c) { return c.price_change_percentage_24h != null; });
     var gainers = withCh.slice().sort(function (a, b) { return b.price_change_percentage_24h - a.price_change_percentage_24h; }).slice(0, 10);
     var losers = withCh.slice().sort(function (a, b) { return a.price_change_percentage_24h - b.price_change_percentage_24h; }).slice(0, 10);
-    var spikes = state.markets.filter(function (c) { return c.market_cap > 0; }).slice()
+    var spikes = state.markets.filter(function (c) { return c.market_cap > 0 && !isStablecoin(c); }).slice()
       .sort(function (a, b) { return (b.total_volume / b.market_cap) - (a.total_volume / a.market_cap); }).slice(0, 10);
     $('gainersBody').innerHTML = miniRows(gainers);
     $('losersBody').innerHTML = miniRows(losers);
     $('spikeBody').innerHTML = miniRows(spikes, function (c) { return (c.total_volume / c.market_cap).toFixed(3); });
-    var breakout = state.markets.filter(function (c) { return c.ath_change_percentage != null && c.ath_change_percentage >= -15 && c.ath_change_percentage <= 0; })
+    var breakout = state.markets.filter(function (c) { return !isStablecoin(c) && c.ath_change_percentage != null && c.ath_change_percentage >= -15 && c.ath_change_percentage <= 0; })
       .sort(function (a, b) { return b.ath_change_percentage - a.ath_change_percentage; }).slice(0, 10);
     $('breakoutBody').innerHTML = breakout.map(function (c) {
       return '<tr><td><strong>' + esc(c.symbol.toUpperCase()) + '</strong> <span class="sub">' + esc(c.name) + '</span></td><td>' + fmtUsd(c.current_price) + '</td>' +
@@ -131,14 +141,19 @@
   }
 
   // ---------- journal ----------
-  function tradePnl(t) { return t.side === 'long' ? (t.exit - t.entry) * t.size : (t.entry - t.exit) * t.size; }
+  // Size của 1 lệnh = khối lượng lệnh theo USD (notional), KHÔNG phải số lượng coin.
+  // P&L = % biến động giá từ entry đến exit × khối lượng USD.
+  function tradePnl(t) {
+    if (!(t.entry > 0)) return 0;
+    return t.side === 'long' ? (t.exit - t.entry) / t.entry * t.size : (t.entry - t.exit) / t.entry * t.size;
+  }
   function getJournal() { return load(LS.journal, []); }
   function renderJournal() {
     var j = getJournal();
     $('journalBody').innerHTML = j.map(function (t, i) {
       var pnl = tradePnl(t);
       return '<tr><td>' + esc(t.date || '') + '</td><td><strong>' + esc(t.coin) + '</strong></td><td>' + (t.side === 'long' ? 'Long' : 'Short') + '</td>' +
-        '<td>' + fmtUsd(t.entry) + '</td><td>' + fmtUsd(t.exit) + '</td><td>' + t.size + '</td>' +
+        '<td>' + fmtUsd(t.entry) + '</td><td>' + fmtUsd(t.exit) + '</td><td>' + fmtUsd(t.size) + '</td>' +
         '<td class="' + pctClass(pnl) + '">' + fmtUsd(pnl) + '</td><td>' + esc(t.note || '') + '</td>' +
         '<td><button class="danger" data-remove-trade="' + i + '">Xoá</button></td></tr>';
     }).join('') || '<tr><td colspan="9">Chưa có lệnh nào.</td></tr>';

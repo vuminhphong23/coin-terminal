@@ -14,7 +14,7 @@ Giao diện chia theo tab (tab đang xem được ghi nhớ trong localStorage):
    - **Watchlist** — Mặc định BTC, ETH, SOL, BNB, XRP: giá live, biến động 24h / 7 ngày, vốn hoá, volume 24h, sparkline 7 ngày. Thêm coin bằng CoinGecko id / symbol / tên (từ top 100), xoá coin, lưu localStorage.
    - **Cảnh báo giá** — Tạo cảnh báo (coin, giá mục tiêu, lên ≥ / xuống ≤ mục tiêu), lưu localStorage, được kiểm tra mỗi lần dữ liệu làm mới trong lúc trang đang mở; cảnh báo đã kích hoạt được đánh dấu rõ ràng, và có thể gửi thông báo trình duyệt nếu bạn cấp quyền (Notification API).
    - **Coin trending** — Danh sách coin đang được tìm kiếm nhiều nhất trên CoinGecko (`/search/trending`).
-2. **Scanner** — Từ top 100 coin: top tăng 24h, top giảm 24h, coin có volume đột biến (tỉ lệ volume 24h / vốn hoá cao), và **ứng viên breakout áp sát ATH** (coin cách đỉnh mọi thời đại không quá 15%, sắp xếp theo độ gần ATH).
+2. **Scanner** — Từ top 100 coin: top tăng 24h, top giảm 24h, coin có volume đột biến (tỉ lệ volume 24h / vốn hoá cao), và **ứng viên breakout áp sát ATH** (coin cách đỉnh mọi thời đại không quá 15%, sắp xếp theo độ gần ATH). Riêng bảng volume đột biến và bảng breakout đã **lọc bỏ stablecoin** (theo danh sách CoinGecko id + heuristic giá quanh $1 và biến động 24h rất thấp), vì stablecoin luôn đứng đầu hai bảng này một cách vô nghĩa.
 3. **Futures** — Bảng funding rate của 12 cặp USDT perpetual swap trên OKX (BTC, ETH, SOL, BNB, XRP, DOGE, ADA, LINK, AVAX, NEAR, SUI, HYPE): funding % mỗi kỳ, đồng hồ đếm ngược trực tiếp tới kỳ chốt funding tiếp theo, và cảnh báo squeeze khi funding cực trị (|funding| ≥ 0,05%/kỳ = đám đông đang nghiêng mạnh một phía).
 4. **Danh mục (Portfolio)** — Thêm khoản nắm giữ (coin, số lượng, giá mua): lãi/lỗ live từng khoản và toàn danh mục, % phân bổ. Lưu localStorage.
 5. **Công cụ** —
@@ -22,7 +22,7 @@ Giao diện chia theo tab (tab đang xem được ghi nhớ trong localStorage):
    - *DCA Simulator:* số tiền mỗi lần mua, số lần mua, giá hiện tại hoặc dãy giá tự nhập → tổng vốn, số lượng tích lũy, giá mua trung bình.
    - *Kế hoạch DCA:* danh sách kế hoạch (coin, số tiền mỗi lần, tần suất hằng ngày / hằng tuần, ngày bắt đầu) lưu localStorage — chỉ là nhắc việc, app không tự mua coin.
    - *Nguyên tắc quản trị rủi ro:* các nguyên tắc tĩnh (rủi ro 1–2%/lệnh, luôn có stop-loss, R:R ≥ 1:2, …).
-6. **Nhật ký trade** — Ghi lệnh (coin, long/short, entry, exit, size, ngày, ghi chú): P&L từng lệnh, win rate, tổng P&L, lệnh tốt nhất / tệ nhất. Lưu localStorage.
+6. **Nhật ký trade** — Ghi lệnh (coin, long/short, entry, exit, size, ngày, ghi chú): P&L từng lệnh, win rate, tổng P&L, lệnh tốt nhất / tệ nhất. Lưu localStorage. **Lưu ý:** trường *size* là **khối lượng lệnh tính theo USD** (giá trị danh nghĩa/notional của vị thế), không phải số lượng coin — P&L được tính theo % biến động giá nhân khối lượng USD: Long = (exit − entry) / entry × size USD; Short = (entry − exit) / entry × size USD.
 7. **Airdrop / Memecoin Tracker** — Danh sách task (dự án, việc cần làm, deadline, trạng thái chưa làm / đang làm / xong, ghi chú tiềm năng). Có sẵn vài task mẫu **chỉ để làm ví dụ** — hãy sửa hoặc xoá và thay bằng dự án thật của bạn.
 
 ## Cách chạy local

@@ -94,13 +94,13 @@
         <div><h2>🔻 Top giảm 24h</h2><div class="table-wrap"><table><thead><tr><th>Coin</th><th>Giá</th><th>24h %</th></tr></thead><tbody id="losersBody"></tbody></table></div></div>
         <div><h2>🔥 Volume đột biến <span class="sub">(Vol / MCap)</span></h2><div class="table-wrap"><table><thead><tr><th>Coin</th><th>Giá</th><th>Vol/MCap</th></tr></thead><tbody id="spikeBody"></tbody></table></div></div>
       </div>
-      <p class="hint">Volume đột biến = tỉ lệ volume 24h / vốn hoá cao bất thường, thường báo hiệu dòng tiền đang chú ý. Không phải tín hiệu mua/bán.</p>
+      <p class="hint">Volume đột biến = tỉ lệ volume 24h / vốn hoá cao bất thường, thường báo hiệu dòng tiền đang chú ý. Không phải tín hiệu mua/bán. Đã lọc stablecoin.</p>
       <h2>🎯 Ứng viên breakout (áp sát ATH)</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>Coin</th><th>Giá</th><th>Cách ATH</th><th>Vốn hoá</th></tr></thead>
         <tbody id="breakoutBody"><tr><td colspan="4">Đang tải…</td></tr></tbody>
       </table></div>
-      <p class="hint">Coin có giá cách đỉnh mọi thời đại (ATH) không quá 15% — vùng giá nhạy cảm: phá ATH thường hút dòng tiền, nhưng cũng dễ bị chốt lời. Không phải tín hiệu mua/bán.</p>
+      <p class="hint">Coin có giá cách đỉnh mọi thời đại (ATH) không quá 15% — vùng giá nhạy cảm: phá ATH thường hút dòng tiền, nhưng cũng dễ bị chốt lời. Không phải tín hiệu mua/bán. Đã lọc stablecoin.</p>
     </section>
   </div>
 
@@ -225,13 +225,14 @@
         <label>Chiều <select id="tSide"><option value="long">Long</option><option value="short">Short</option></select></label>
         <label>Entry <input id="tEntry" type="number" step="any" min="0" required></label>
         <label>Exit <input id="tExit" type="number" step="any" min="0" required></label>
-        <label>Size (số lượng coin) <input id="tSize" type="number" step="any" min="0" required></label>
+        <label>Khối lượng lệnh (USD) <input id="tSize" type="number" step="any" min="0" placeholder="vd: 1000" required></label>
         <label>Ngày <input id="tDate" type="date"></label>
         <label>Ghi chú <input id="tNote" type="text" placeholder="Lý do vào lệnh…"></label>
         <button type="submit">+ Ghi lệnh</button>
       </form>
+      <p class="hint">Khối lượng lệnh (Size) tính theo USD — giá trị danh nghĩa (notional) của vị thế, không phải số lượng coin. P&amp;L = % thay đổi giá từ entry đến exit × khối lượng lệnh (USD).</p>
       <div class="table-wrap"><table>
-        <thead><tr><th>Ngày</th><th>Coin</th><th>Chiều</th><th>Entry</th><th>Exit</th><th>Size</th><th>P&amp;L</th><th>Ghi chú</th><th></th></tr></thead>
+        <thead><tr><th>Ngày</th><th>Coin</th><th>Chiều</th><th>Entry</th><th>Exit</th><th>Size (USD)</th><th>P&amp;L</th><th>Ghi chú</th><th></th></tr></thead>
         <tbody id="journalBody"><tr><td colspan="9">Chưa có lệnh nào.</td></tr></tbody>
       </table></div>
     </section>

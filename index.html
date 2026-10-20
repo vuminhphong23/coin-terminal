@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coin Terminal — Terminal cho coin thủ</title>
+<meta name="description" content="Coin Terminal: watchlist, scanner cơ hội, portfolio, máy tính rủi ro, nhật ký trade và tracker airdrop/memecoin.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">₿ Coin <span>Terminal</span></div>
+  <nav class="nav">
+    <a href="#dashboard">Dashboard</a>
+    <a href="#watchlist">Watchlist</a>
+    <a href="#scanner">Scanner</a>
+    <a href="#portfolio">Portfolio</a>
+    <a href="#risk">Quản lý rủi ro</a>
+    <a href="#journal">Nhật ký trade</a>
+    <a href="#airdrop">Airdrop</a>
+  </nav>
+  <button id="refreshBtn" type="button">↻ Làm mới dữ liệu</button>
+</header>
+
+<div id="fallbackBanner" class="banner hidden" role="alert">
+  Đang hiển thị <strong>dữ liệu mẫu (API không khả dụng)</strong> — giá bên dưới KHÔNG phải giá live. Kiểm tra mạng / đợi hết rate-limit rồi bấm “Làm mới dữ liệu”.
+</div>
+<div id="statusLine" class="status">Đang tải dữ liệu thị trường…</div>
+
+<main>
+  <!-- 1. DASHBOARD -->
+  <section id="dashboard" class="panel">
+    <h1>Dashboard / Bản tin sáng</h1>
+    <div class="cards">
+      <div class="card"><div class="label">Tổng vốn hoá thị trường</div><div class="value" id="mcap">—</div></div>
+      <div class="card"><div class="label">Khối lượng 24h</div><div class="value" id="vol24">—</div></div>
+      <div class="card"><div class="label">BTC Dominance</div><div class="value" id="btcDom">—</div></div>
+      <div class="card"><div class="label">Fear &amp; Greed</div><div class="value" id="fng">—</div><div class="sub" id="fngLabel"></div></div>
+    </div>
+    <h2>Bản tin sáng (tự tạo từ dữ liệu)</h2>
+    <p id="briefing" class="briefing">Chưa có dữ liệu.</p>
+    <p class="disclaimer">Thông tin chỉ để tham khảo, không phải lời khuyên tài chính. Tự nghiên cứu (DYOR) trước khi xuống tiền.</p>
+  </section>
+
+  <!-- 2. WATCHLIST -->
+  <section id="watchlist" class="panel">
+    <h1>Watchlist</h1>
+    <form id="addCoinForm" class="row-form">
+      <label>Tìm coin (theo tên / symbol, từ top 100)
+        <input id="coinSearch" type="text" list="coinList" placeholder="vd: solana hoặc SOL" autocomplete="off">
+      </label>
+      <datalist id="coinList"></datalist>
+      <button type="submit">+ Thêm vào watchlist</button>
+    </form>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Coin</th><th>Giá</th><th>24h %</th><th>7d %</th><th>Vốn hoá</th><th>Volume 24h</th><th>Sparkline 7d</th><th></th></tr></thead>
+      <tbody id="watchlistBody"><tr><td colspan="8">Đang tải…</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <!-- 3. SCANNER -->
+  <section id="scanner" class="panel">
+    <h1>Scanner cơ hội <span class="sub">(từ top 100)</span></h1>
+    <div class="grid-3">
+      <div><h2>🚀 Top tăng 24h</h2><div class="table-wrap"><table><thead><tr><th>Coin</th><th>Giá</th><th>24h %</th></tr></thead><tbody id="gainersBody"></tbody></table></div></div>
+      <div><h2>🔻 Top giảm 24h</h2><div class="table-wrap"><table><thead><tr><th>Coin</th><th>Giá</th><th>24h %</th></tr></thead><tbody id="losersBody"></tbody></table></div></div>
+      <div><h2>🔥 Volume đột biến <span class="sub">(Vol / MCap)</span></h2><div class="table-wrap"><table><thead><tr><th>Coin</th><th>Giá</th><th>Vol/MCap</th></tr></thead><tbody id="spikeBody"></tbody></table></div></div>
+    </div>
+    <p class="hint">Volume đột biến = tỉ lệ volume 24h / vốn hoá cao bất thường, thường báo hiệu dòng tiền đang chú ý. Không phải tín hiệu mua/bán.</p>
+  </section>
+
+  <!-- 4. PORTFOLIO -->
+  <section id="portfolio" class="panel">
+    <h1>Portfolio</h1>
+    <form id="holdingForm" class="row-form">
+      <label>Coin <input id="hCoin" type="text" list="coinList" placeholder="vd: bitcoin" required></label>
+      <label>Số lượng <input id="hAmount" type="number" step="any" min="0" required></label>
+      <label>Giá mua (USD) <input id="hBuy" type="number" step="any" min="0" required></label>
+      <button type="submit">+ Thêm khoản nắm giữ</button>
+    </form>
+    <div class="cards">
+      <div class="card"><div class="label">Tổng giá trị hiện tại</div><div class="value" id="pfValue">—</div></div>
+      <div class="card"><div class="label">Tổng vốn đã bỏ</div><div class="value" id="pfCost">—</div></div>
+      <div class="card"><div class="label">Tổng P&amp;L</div><div class="value" id="pfPnl">—</div></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Coin</th><th>Số lượng</th><th>Giá mua</th><th>Giá hiện tại</th><th>Giá trị</th><th>P&amp;L</th><th>% phân bổ</th><th></th></tr></thead>
+      <tbody id="portfolioBody"><tr><td colspan="8">Chưa có khoản nắm giữ nào.</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <!-- 5. RISK -->
+  <section id="risk" class="panel">
+    <h1>Công cụ quản lý rủi ro</h1>
+    <div class="grid-2">
+      <div>
+        <h2>(a) Position Size — Futures / Spot</h2>
+        <form id="posForm" class="col-form">
+          <label>Chiều <select id="pSide"><option value="long">Long</option><option value="short">Short</option></select></label>
+          <label>Vốn (USD) <input id="pCapital" type="number" step="any" min="0" value="1000" required></label>
+          <label>% rủi ro / lệnh <input id="pRisk" type="number" step="any" min="0" value="1" required></label>
+          <label>Giá vào (entry) <input id="pEntry" type="number" step="any" min="0" required></label>
+          <label>Stop-loss <input id="pSL" type="number" step="any" min="0" required></label>
+          <label>Take-profit <input id="pTP" type="number" step="any" min="0"></label>
+          <label>Đòn bẩy (x) <input id="pLev" type="number" step="any" min="1" value="1" required></label>
+          <button type="submit">Tính position size</button>
+        </form>
+        <div id="posResult" class="result"></div>
+      </div>
+      <div>
+        <h2>(b) Mô phỏng DCA</h2>
+        <form id="dcaForm" class="col-form">
+          <label>Số tiền mỗi lần mua (USD) <input id="dAmount" type="number" step="any" min="0" value="100" required></label>
+          <label>Số lần mua <input id="dCount" type="number" step="1" min="1" value="10" required></label>
+          <label>Giá hiện tại (USD) <input id="dPrice" type="number" step="any" min="0" placeholder="Bỏ trống = lấy giá BTC live"></label>
+          <label>Dãy giá từng lần mua (cách nhau dấu phẩy, tuỳ chọn)
+            <input id="dSeries" type="text" placeholder="vd: 100, 90, 80, 95">
+          </label>
+          <button type="submit">Chạy mô phỏng DCA</button>
+        </form>
+        <div id="dcaResult" class="result"></div>
+        <p class="hint">Nếu không nhập dãy giá, mô phỏng giả định mua đều ở giá hiện tại (chỉ minh hoạ cơ chế, không dự đoán giá).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. JOURNAL -->
+  <section id="journal" class="panel">
+    <h1>Nhật ký trade</h1>
+    <div class="cards">
+      <div class="card"><div class="label">Win rate</div><div class="value" id="jWinRate">—</div></div>
+      <div class="card"><div class="label">Tổng P&amp;L</div><div class="value" id="jTotalPnl">—</div></div>
+      <div class="card"><div class="label">Lệnh tốt nhất</div><div class="value small" id="jBest">—</div></div>
+      <div class="card"><div class="label">Lệnh tệ nhất</div><div class="value small" id="jWorst">—</div></div>
+    </div>
+    <form id="tradeForm" class="row-form">
+      <label>Coin <input id="tCoin" type="text" placeholder="BTC" required></label>
+      <label>Chiều <select id="tSide"><option value="long">Long</option><option value="short">Short</option></select></label>
+      <label>Entry <input id="tEntry" type="number" step="any" min="0" required></label>
+      <label>Exit <input id="tExit" type="number" step="any" min="0" required></label>
+      <label>Size (số lượng coin) <input id="tSize" type="number" step="any" min="0" required></label>
+      <label>Ngày <input id="tDate" type="date"></label>
+      <label>Ghi chú <input id="tNote" type="text" placeholder="Lý do vào lệnh…"></label>
+      <button type="submit">+ Ghi lệnh</button>
+    </form>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Ngày</th><th>Coin</th><th>Chiều</th><th>Entry</th><th>Exit</th><th>Size</th><th>P&amp;L</th><th>Ghi chú</th><th></th></tr></thead>
+      <tbody id="journalBody"><tr><td colspan="9">Chưa có lệnh nào.</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <!-- 7. AIRDROP -->
+  <section id="airdrop" class="panel">
+    <h1>Airdrop / Memecoin Tracker</h1>
+    <form id="airForm" class="row-form">
+      <label>Dự án <input id="aProject" type="text" placeholder="Tên dự án" required></label>
+      <label>Task <input id="aTask" type="text" placeholder="Việc cần làm" required></label>
+      <label>Deadline <input id="aDeadline" type="date"></label>
+      <label>Trạng thái <select id="aStatus"><option value="todo">Chưa làm</option><option value="doing">Đang làm</option><option value="done">Xong</option></select></label>
+      <label>Ghi chú tiềm năng <input id="aNote" type="text" placeholder="vd: backer mạnh, chưa có token"></label>
+      <button type="submit">+ Thêm task</button>
+    </form>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Dự án</th><th>Task</th><th>Deadline</th><th>Trạng thái</th><th>Ghi chú</th><th></th></tr></thead>
+      <tbody id="airdropBody"></tbody>
+    </table></div>
+    <p class="hint">Các task mẫu bên dưới chỉ là ví dụ mẫu để bạn sửa / xoá — không phải dự án được xác thực hay cam kết có airdrop.</p>
+  </section>
+</main>
+
+<footer>
+  <p>Coin Terminal — dữ liệu: CoinGecko &amp; Alternative.me Fear &amp; Greed Index. Không phải lời khuyên tài chính.</p>
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

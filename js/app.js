@@ -84,7 +84,7 @@
   // ---------- scanner ----------
   // Stablecoin bị lọc khỏi bảng Volume đột biến & Breakout (chúng luôn "đột biến"/sát ATH một cách vô nghĩa).
   // Chỉ áp dụng cho 2 bảng đó — KHÔNG lọc ở gainers/losers, watchlist hay nơi nào khác.
-  var STABLECOIN_IDS = ["tether", "usd-coin", "dai", "usds", "ethena-usde", "first-digital-usd", "true-usd", "usdd", "paypal-usd", "usyc", "buidl", "ustb", "usd1", "frax", "liquity-usd", "crvusd", "gho", "usdx-money-usdx", "mountain-protocol-usdm", "usual-usd", "resolv-usr", "ethena-usdtb", "hashnote-usyc", "superstate-short-duration-us-government-securities-fund-ustb", "ondo-us-dollar-yield", "falcon-finance"];
+  var STABLECOIN_IDS = ["tether", "usd-coin", "dai", "usds", "ethena-usde", "first-digital-usd", "true-usd", "usdd", "paypal-usd", "usyc", "buidl", "ustb", "usd1", "frax", "liquity-usd", "crvusd", "gho", "usdx-money-usdx", "mountain-protocol-usdm", "usual-usd", "resolv-usr", "ethena-usdtb", "hashnote-usyc", "superstate-short-duration-us-government-securities-fund-ustb", "ondo-us-dollar-yield", "falcon-finance", "figure-heloc", "spiko-amundi-overnight-swap-fund-eur", "blockchain-capital"];
   function isStablecoin(c) {
     if (!c) return false;
     if (STABLECOIN_IDS.indexOf(c.id) !== -1) return true;

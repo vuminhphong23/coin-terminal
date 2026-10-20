@@ -19,18 +19,18 @@
     for (var i = 0; i < 28; i++) { v *= 1 + (Math.sin(i / 3) * 0.012); out.push(Math.round(v * 100) / 100); }
     out.push(base); return out;
   }
-  function sampleCoin(id, symbol, name, price, ch24, ch7, mcap, vol) {
+  function sampleCoin(id, symbol, name, price, ch24, ch7, mcap, vol, athCh) {
     return { id: id, symbol: symbol, name: name, current_price: price,
       price_change_percentage_24h: ch24, price_change_percentage_7d_in_currency: ch7,
-      market_cap: mcap, total_volume: vol, sparkline_in_7d: { price: fakeSpark(price) } };
+      ath_change_percentage: athCh, market_cap: mcap, total_volume: vol, sparkline_in_7d: { price: fakeSpark(price) } };
   }
   var SAMPLE = {
     markets: [
-      sampleCoin('bitcoin', 'btc', 'Bitcoin', 67000, 1.2, 3.4, 1320000000000, 28000000000),
-      sampleCoin('ethereum', 'eth', 'Ethereum', 3500, 0.8, 2.1, 420000000000, 15000000000),
-      sampleCoin('solana', 'sol', 'Solana', 160, -2.1, 5.0, 73000000000, 3200000000),
-      sampleCoin('binancecoin', 'bnb', 'BNB', 590, 0.4, 1.0, 87000000000, 1600000000),
-      sampleCoin('ripple', 'xrp', 'XRP', 0.62, -0.6, -1.2, 34000000000, 1200000000)
+      sampleCoin('bitcoin', 'btc', 'Bitcoin', 67000, 1.2, 3.4, 1320000000000, 28000000000, -38.5),
+      sampleCoin('ethereum', 'eth', 'Ethereum', 3500, 0.8, 2.1, 420000000000, 15000000000, -42.1),
+      sampleCoin('solana', 'sol', 'Solana', 160, -2.1, 5.0, 73000000000, 3200000000, -11.8),
+      sampleCoin('binancecoin', 'bnb', 'BNB', 590, 0.4, 1.0, 87000000000, 1600000000, -24.6),
+      sampleCoin('ripple', 'xrp', 'XRP', 0.62, -0.6, -1.2, 34000000000, 1200000000, -55.3)
     ],
     globalData: { data: { total_market_cap: { usd: 2300000000000 }, total_volume: { usd: 90000000000 },
       market_cap_percentage: { btc: 54.2 } } },
@@ -85,5 +85,38 @@
     });
   }
 
-  global.CoinAPI = { getMarketData: getMarketData };
+  // --- OKX Futures: funding rate của 12 cặp USDT perpetual swap ---
+  var OKX = 'https://www.okx.com/api/v5';
+  var FUTURES_SYMBOLS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'LINK', 'AVAX', 'NEAR', 'SUI', 'HYPE'];
+
+  /**
+   * Lấy funding rate hiện tại từ OKX cho 12 cặp -USDT-SWAP, gọi song song.
+   * Không bịa dữ liệu funding: lỗi cặp nào bỏ cặp đó; lỗi tất cả thì ok=false để UI báo lỗi rõ ràng.
+   * @returns {Promise<{ok:boolean, rates:Array<{symbol,instId,fundingRate,fundingTime,nextFundingTime}>, failed:number}>}
+   */
+  function getFundingRates() {
+    return Promise.allSettled(FUTURES_SYMBOLS.map(function (sym) {
+      var instId = sym + '-USDT-SWAP';
+      return fetchJson(OKX + '/public/funding-rate?instId=' + instId).then(function (res) {
+        var d = res && res.data && res.data[0];
+        if (!d) throw new Error('OKX empty ' + instId);
+        return { symbol: sym, instId: instId, fundingRate: parseFloat(d.fundingRate),
+          fundingTime: Number(d.fundingTime), nextFundingTime: Number(d.nextFundingTime) };
+      });
+    })).then(function (res) {
+      var rates = res.filter(function (r) { return r.status === 'fulfilled'; }).map(function (r) { return r.value; });
+      return { ok: rates.length > 0, rates: rates, failed: res.length - rates.length };
+    });
+  }
+
+  /** Coin trending trên CoinGecko: GET /search/trending. Lỗi thì throw để UI ẩn section kèm ghi chú nhỏ. */
+  function getTrending() {
+    return fetchJson(COINGECKO + '/search/trending').then(function (res) {
+      var coins = (res && res.coins) || [];
+      if (!coins.length) throw new Error('Trending empty');
+      return coins;
+    });
+  }
+
+  global.CoinAPI = { getMarketData: getMarketData, getFundingRates: getFundingRates, getTrending: getTrending, FUTURES_SYMBOLS: FUTURES_SYMBOLS };
 })(window);

@@ -4,15 +4,24 @@ Web app "terminal" all-in-one cho coin thủ: theo dõi thị trường buổi s
 
 > ⚠️ **Không phải lời khuyên tài chính.** Coin Terminal chỉ là công cụ tổng hợp thông tin và tính toán hỗ trợ ra quyết định. Giá crypto biến động rất mạnh — hãy tự nghiên cứu (DYOR), quản lý rủi ro và không đầu tư số tiền bạn không thể mất.
 
+## Bố cục tab
+
+Giao diện chia theo tab (tab đang xem được ghi nhớ trong localStorage): **Tổng quan · Scanner · Futures · Danh mục · Công cụ · Nhật ký · Airdrop**.
+
 ## Tính năng
 
-1. **Dashboard / Bản tin sáng** — Tổng vốn hoá thị trường, khối lượng 24h, BTC dominance, chỉ số Fear & Greed, và đoạn bản tin sáng tự tạo từ dữ liệu live (coin tăng/giảm mạnh nhất trong top, tâm lý thị trường).
-2. **Watchlist** — Mặc định BTC, ETH, SOL, BNB, XRP: giá live, biến động 24h / 7 ngày, vốn hoá, volume 24h, sparkline 7 ngày. Thêm coin bằng CoinGecko id / symbol / tên (từ top 100), xoá coin, lưu tự động trong trình duyệt (localStorage).
-3. **Scanner cơ hội** — Từ top 100 coin: top tăng 24h, top giảm 24h, và coin có volume đột biến (tỉ lệ volume 24h / vốn hoá cao).
-4. **Portfolio** — Thêm khoản nắm giữ (coin, số lượng, giá mua): lãi/lỗ live từng khoản và toàn danh mục, % phân bổ. Lưu localStorage.
-5. **Công cụ quản lý rủi ro**
+1. **Tổng quan** — Tổng vốn hoá thị trường, khối lượng 24h, BTC dominance, chỉ số Fear & Greed, và đoạn bản tin sáng tự tạo từ dữ liệu live (coin tăng/giảm mạnh nhất trong top, tâm lý thị trường). Kèm theo:
+   - **Watchlist** — Mặc định BTC, ETH, SOL, BNB, XRP: giá live, biến động 24h / 7 ngày, vốn hoá, volume 24h, sparkline 7 ngày. Thêm coin bằng CoinGecko id / symbol / tên (từ top 100), xoá coin, lưu localStorage.
+   - **Cảnh báo giá** — Tạo cảnh báo (coin, giá mục tiêu, lên ≥ / xuống ≤ mục tiêu), lưu localStorage, được kiểm tra mỗi lần dữ liệu làm mới trong lúc trang đang mở; cảnh báo đã kích hoạt được đánh dấu rõ ràng, và có thể gửi thông báo trình duyệt nếu bạn cấp quyền (Notification API).
+   - **Coin trending** — Danh sách coin đang được tìm kiếm nhiều nhất trên CoinGecko (`/search/trending`).
+2. **Scanner** — Từ top 100 coin: top tăng 24h, top giảm 24h, coin có volume đột biến (tỉ lệ volume 24h / vốn hoá cao), và **ứng viên breakout áp sát ATH** (coin cách đỉnh mọi thời đại không quá 15%, sắp xếp theo độ gần ATH).
+3. **Futures** — Bảng funding rate của 12 cặp USDT perpetual swap trên OKX (BTC, ETH, SOL, BNB, XRP, DOGE, ADA, LINK, AVAX, NEAR, SUI, HYPE): funding % mỗi kỳ, đồng hồ đếm ngược trực tiếp tới kỳ chốt funding tiếp theo, và cảnh báo squeeze khi funding cực trị (|funding| ≥ 0,05%/kỳ = đám đông đang nghiêng mạnh một phía).
+4. **Danh mục (Portfolio)** — Thêm khoản nắm giữ (coin, số lượng, giá mua): lãi/lỗ live từng khoản và toàn danh mục, % phân bổ. Lưu localStorage.
+5. **Công cụ** —
    - *Position Size:* vốn, % rủi ro, entry, stop-loss, take-profit, đòn bẩy → position size, số lượng, margin cần thiết, lãi/lỗ tiềm năng, tỉ lệ R:R và giá thanh lý futures ước tính.
    - *DCA Simulator:* số tiền mỗi lần mua, số lần mua, giá hiện tại hoặc dãy giá tự nhập → tổng vốn, số lượng tích lũy, giá mua trung bình.
+   - *Kế hoạch DCA:* danh sách kế hoạch (coin, số tiền mỗi lần, tần suất hằng ngày / hằng tuần, ngày bắt đầu) lưu localStorage — chỉ là nhắc việc, app không tự mua coin.
+   - *Nguyên tắc quản trị rủi ro:* các nguyên tắc tĩnh (rủi ro 1–2%/lệnh, luôn có stop-loss, R:R ≥ 1:2, …).
 6. **Nhật ký trade** — Ghi lệnh (coin, long/short, entry, exit, size, ngày, ghi chú): P&L từng lệnh, win rate, tổng P&L, lệnh tốt nhất / tệ nhất. Lưu localStorage.
 7. **Airdrop / Memecoin Tracker** — Danh sách task (dự án, việc cần làm, deadline, trạng thái chưa làm / đang làm / xong, ghi chú tiềm năng). Có sẵn vài task mẫu **chỉ để làm ví dụ** — hãy sửa hoặc xoá và thay bằng dự án thật của bạn.
 
@@ -50,8 +59,9 @@ Lưu ý: dữ liệu người dùng (watchlist, portfolio, nhật ký, task) lư
 
 ## API sử dụng
 
-- **CoinGecko Public API** (không cần API key): `GET /api/v3/coins/markets` (top 100, kèm sparkline 7d và % thay đổi 24h/7d) và `GET /api/v3/global` (tổng vốn hoá, volume, BTC dominance).
+- **CoinGecko Public API** (không cần API key): `GET /api/v3/coins/markets` (top 100, kèm sparkline 7d và % thay đổi 24h/7d, % cách ATH), `GET /api/v3/global` (tổng vốn hoá, volume, BTC dominance) và `GET /api/v3/search/trending` (coin trending).
 - **Alternative.me Fear & Greed Index**: `GET https://api.alternative.me/fng/`.
+- **OKX Public API**: `GET https://www.okx.com/api/v5/public/funding-rate?instId=<SYMBOL>-USDT-SWAP` cho 12 cặp perpetual swap (funding rate và thời điểm chốt funding).
 
 Nếu API lỗi, bị rate-limit (free tier của CoinGecko khá thấp) hoặc mất mạng, app sẽ thử dùng dữ liệu đã cache trong `localStorage`, và nếu không có cache thì hiển thị **dữ liệu mẫu với nhãn rõ ràng "dữ liệu mẫu (API không khả dụng)"** — giá mẫu này không phải giá live.
 
@@ -69,9 +79,21 @@ coin-terminal/
 └── README.md
 ```
 
+## Khác biệt so với bản hosted trong app
+
+Coin Terminal còn một bản hosted chạy trong app (bản Muse dựng riêng cho người dùng). Hai bản đã được căn chỉnh để **giống nhau về tính năng, bố cục tab và nguồn dữ liệu** (CoinGecko, Alternative.me, OKX), chỉ khác về cách lưu trữ và cách tạo bản tin:
+
+| | Bản GitHub Pages này (tĩnh) | Bản hosted trong app |
+|---|---|---|
+| Lưu dữ liệu người dùng | Trong `localStorage` của trình duyệt, trên từng thiết bị | Phía server, dùng được xuyên thiết bị |
+| Bản tin sáng | Tự tạo ngay tại trình duyệt (client-side) mỗi khi bạn mở trang, từ dữ liệu live lúc đó | Được tổng hợp sẵn tự động lúc 07:30 mỗi ngày (giờ Bangkok) |
+| Cảnh báo giá | Kiểm tra khi trang đang mở và dữ liệu làm mới | Theo cơ chế của bản hosted |
+
 ## Giới hạn đã biết
 
 - CoinGecko free API có rate-limit; reload quá nhanh có thể tạm thời rơi vào dữ liệu cache/mẫu.
-- Thêm coin vào watchlist/portfolio chỉ hỗ trợ các coin nằm trong top 100 theo vốn hoá.
+- OKX có thể chặn theo khu vực địa lý hoặc CORS ở một số trình duyệt/khu vực; khi đó riêng tab Futures sẽ hiện thông báo lỗi, các tab khác vẫn hoạt động.
+- Thêm coin vào watchlist/portfolio/cảnh báo chỉ hỗ trợ các coin nằm trong top 100 theo vốn hoá.
+- Cảnh báo giá chỉ được kiểm tra trong lúc trang đang mở (trang tĩnh không có server chạy nền).
 - Giá thanh lý futures là ước tính đơn giản (chưa gồm phí giao dịch và maintenance margin của từng sàn).
 - Dữ liệu localStorage chỉ tồn tại trên một trình duyệt / một thiết bị.

@@ -2,9 +2,9 @@
 (function () {
   'use strict';
 
-  var LS = { watch: 'ct_watchlist_v1', pf: 'ct_portfolio_v1', journal: 'ct_journal_v1', air: 'ct_airdrop_v1' };
+  var LS = { watch: 'ct_watchlist_v1', pf: 'ct_portfolio_v1', journal: 'ct_journal_v1', air: 'ct_airdrop_v1', alerts: 'ct_alerts_v1', dcaPlan: 'ct_dcaplan_v1', tab: 'ct_active_tab_v1' };
   var DEFAULT_WATCH = ['bitcoin', 'ethereum', 'solana', 'binancecoin', 'ripple'];
-  var state = { markets: [], byId: {}, isFallback: false };
+  var state = { markets: [], byId: {}, isFallback: false, funding: [] };
 
   // ---------- helpers ----------
   function $(id) { return document.getElementById(id); }
@@ -96,6 +96,12 @@
     $('gainersBody').innerHTML = miniRows(gainers);
     $('losersBody').innerHTML = miniRows(losers);
     $('spikeBody').innerHTML = miniRows(spikes, function (c) { return (c.total_volume / c.market_cap).toFixed(3); });
+    var breakout = state.markets.filter(function (c) { return c.ath_change_percentage != null && c.ath_change_percentage >= -15 && c.ath_change_percentage <= 0; })
+      .sort(function (a, b) { return b.ath_change_percentage - a.ath_change_percentage; }).slice(0, 10);
+    $('breakoutBody').innerHTML = breakout.map(function (c) {
+      return '<tr><td><strong>' + esc(c.symbol.toUpperCase()) + '</strong> <span class="sub">' + esc(c.name) + '</span></td><td>' + fmtUsd(c.current_price) + '</td>' +
+        '<td class="down">' + Number(c.ath_change_percentage).toFixed(2) + '%</td><td>' + fmtBig(c.market_cap) + '</td></tr>';
+    }).join('') || '<tr><td colspan="4">Không có coin nào trong top 100 đang áp sát ATH (cách ATH ≤ 15%).</td></tr>';
   }
 
   // ---------- portfolio ----------
@@ -163,6 +169,125 @@
     }).join('') || '<tr><td colspan="6">Chưa có task nào.</td></tr>';
   }
 
+  // ---------- price alerts ----------
+  function getAlerts() { return load(LS.alerts, []); }
+  function notify(title, body) {
+    try {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      new Notification(title, { body: body });
+    } catch (e) { /* thông báo không khả dụng — bỏ qua, không để lỗi phá app */ }
+  }
+  function checkAlerts() {
+    if (state.isFallback) return; // không kích hoạt cảnh báo trên dữ liệu mẫu
+    var alerts = getAlerts(), changed = false;
+    alerts.forEach(function (a) {
+      if (a.triggered) return;
+      var c = state.byId[a.coinId];
+      if (!c || c.current_price == null) return;
+      var hit = a.dir === 'above' ? c.current_price >= a.target : c.current_price <= a.target;
+      if (hit) {
+        a.triggered = true; a.triggeredAt = new Date().toLocaleString('vi-VN'); changed = true;
+        notify('Coin Terminal — cảnh báo giá', c.name + ' (' + c.symbol.toUpperCase() + ') đã ' + (a.dir === 'above' ? 'lên' : 'xuống') + ' tới ' + fmtUsd(c.current_price) + ' — chạm mục tiêu ' + fmtUsd(a.target) + '.');
+      }
+    });
+    if (changed) save(LS.alerts, alerts);
+  }
+  function renderAlerts() {
+    var alerts = getAlerts();
+    $('alertsBody').innerHTML = alerts.map(function (a, i) {
+      var c = state.byId[a.coinId];
+      var name = c ? esc(c.name) + ' <span class="sub">' + esc(c.symbol.toUpperCase()) + '</span>' : esc(a.coinId);
+      var status = a.triggered
+        ? '<span class="badge triggered">ĐÃ KÍCH HOẠT</span> <span class="sub">' + esc(a.triggeredAt || '') + '</span>'
+        : '<span class="badge todo">Đang chờ</span>';
+      return '<tr' + (a.triggered ? ' class="alert-hit"' : '') + '><td><strong>' + name + '</strong></td>' +
+        '<td>' + (a.dir === 'above' ? '≥' : '≤') + ' ' + fmtUsd(a.target) + '</td>' +
+        '<td>' + (c ? fmtUsd(c.current_price) : 'N/A') + '</td><td>' + status + '</td>' +
+        '<td><button class="danger" data-remove-alert="' + i + '">Xoá</button></td></tr>';
+    }).join('') || '<tr><td colspan="5">Chưa có cảnh báo nào.</td></tr>';
+  }
+
+  // ---------- trending ----------
+  function renderTrending(coins) {
+    $('trendingBody').innerHTML = coins.slice(0, 10).map(function (entry) {
+      var it = entry.item || {}, d = it.data || {};
+      var ch = d.price_change_percentage_24h && d.price_change_percentage_24h.usd;
+      return '<tr><td><strong>' + esc(it.symbol ? it.symbol.toUpperCase() : '') + '</strong> <span class="sub">' + esc(it.name || '') + '</span></td>' +
+        '<td>' + (it.market_cap_rank != null ? '#' + it.market_cap_rank : '—') + '</td>' +
+        '<td>' + (d.price != null ? fmtUsd(d.price) : '—') + '</td>' +
+        '<td class="' + pctClass(ch) + '">' + fmtPct(ch) + '</td></tr>';
+    }).join('') || '<tr><td colspan="4">Chưa có dữ liệu trending.</td></tr>';
+  }
+  function loadTrending() {
+    window.CoinAPI.getTrending().then(renderTrending).catch(function () {
+      // Ẩn lặng lẽ: chỉ để lại ghi chú nhỏ, không phá các phần khác
+      $('trendingBody').innerHTML = '';
+      $('trendingNote').textContent = 'Không tải được danh sách trending lúc này.';
+    });
+  }
+
+  // ---------- futures / funding (OKX) ----------
+  var FUNDING_EXTREME = 0.0005; // 0.05% / kỳ
+  function fmtCountdown(ms) {
+    if (ms == null || isNaN(ms)) return '—';
+    if (ms < 0) ms = 0;
+    var s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return p(h) + ':' + p(m) + ':' + p(ss);
+  }
+  function renderFunding(result) {
+    if (!result || !result.ok) {
+      $('fundingError').classList.remove('hidden');
+      $('fundingBody').innerHTML = '<tr><td colspan="4">Không có dữ liệu funding.</td></tr>';
+      $('fundingCountdown').textContent = '—'; $('fundingExtremeCount').textContent = '—';
+      state.funding = [];
+      return;
+    }
+    $('fundingError').classList.toggle('hidden', result.failed === 0);
+    if (result.failed > 0) $('fundingError').textContent = 'Tải được ' + result.rates.length + '/' + (result.rates.length + result.failed) + ' cặp từ OKX — một số cặp tạm lỗi, thử Làm mới sau.';
+    state.funding = result.rates.slice().sort(function (a, b) { return Math.abs(b.fundingRate) - Math.abs(a.fundingRate); });
+    var extremes = state.funding.filter(function (r) { return Math.abs(r.fundingRate) >= FUNDING_EXTREME; });
+    $('fundingExtremeCount').textContent = String(extremes.length);
+    $('fundingBody').innerHTML = state.funding.map(function (r) {
+      var pct = r.fundingRate * 100, extreme = Math.abs(r.fundingRate) >= FUNDING_EXTREME;
+      var crowd = extreme
+        ? (r.fundingRate > 0 ? '<span class="badge crowd-long">⚠️ Crowded Long — dễ long squeeze</span>' : '<span class="badge crowd-short">⚠️ Crowded Short — dễ short squeeze</span>')
+        : (r.fundingRate > 0 ? '<span class="sub">Long trả Short</span>' : '<span class="sub">Short trả Long</span>');
+      return '<tr' + (extreme ? ' class="extreme"' : '') + '><td><strong>' + esc(r.symbol) + '-USDT-SWAP</strong></td>' +
+        '<td class="' + pctClass(r.fundingRate) + '">' + (pct >= 0 ? '+' : '') + pct.toFixed(4) + '%</td>' +
+        '<td>' + crowd + '</td>' +
+        // Đếm ngược dựa trên fundingTime = kỳ chốt funding sắp tới (imminent), KHÔNG dùng nextFundingTime (kỳ sau đó, lệch 1 kỳ)
+        '<td class="countdown" data-funding-time="' + r.fundingTime + '">' + fmtCountdown(r.fundingTime - Date.now()) + '</td></tr>';
+    }).join('');
+    tickFundingCountdowns();
+  }
+  function tickFundingCountdowns() {
+    var now = Date.now(), soonest = null;
+    document.querySelectorAll('[data-funding-time]').forEach(function (el) {
+      var t = Number(el.getAttribute('data-funding-time'));
+      el.textContent = fmtCountdown(t - now);
+      if (soonest == null || t < soonest) soonest = t;
+    });
+    if (soonest != null && $('fundingCountdown')) $('fundingCountdown').textContent = fmtCountdown(soonest - now);
+  }
+  function loadFunding() {
+    window.CoinAPI.getFundingRates().then(renderFunding).catch(function () { renderFunding(null); });
+  }
+
+  // ---------- DCA plans ----------
+  var FREQ_LABEL = { daily: 'Hằng ngày', weekly: 'Hằng tuần' };
+  function getDcaPlans() { return load(LS.dcaPlan, []); }
+  function renderDcaPlans() {
+    var plans = getDcaPlans();
+    $('dcaPlanBody').innerHTML = plans.map(function (p, i) {
+      var c = findCoin(p.coin);
+      var monthly = p.freq === 'daily' ? p.amount * 30 : p.amount * 52 / 12;
+      return '<tr><td><strong>' + esc(c ? c.symbol.toUpperCase() : p.coin) + '</strong></td><td>' + fmtUsd(p.amount) + '</td>' +
+        '<td>' + (FREQ_LABEL[p.freq] || p.freq) + '</td><td>' + esc(p.start || '—') + '</td><td>' + fmtUsd(Math.round(monthly)) + '</td>' +
+        '<td><button class="danger" data-remove-plan="' + i + '">Xoá</button></td></tr>';
+    }).join('') || '<tr><td colspan="6">Chưa có kế hoạch DCA nào.</td></tr>';
+  }
+
   // ---------- risk calculators ----------
   function calcPosition(e) {
     e.preventDefault();
@@ -215,16 +340,59 @@
     $('fallbackBanner').classList.toggle('hidden', !state.isFallback);
     $('statusLine').textContent = (data.fromCache ? 'Đang dùng dữ liệu đã cache (API tạm lỗi). ' : 'Đã tải dữ liệu. ') + 'Cập nhật lúc ' + new Date().toLocaleString('vi-VN') + (state.isFallback ? ' — dữ liệu mẫu (API không khả dụng).' : ' — nguồn: CoinGecko / Alternative.me.');
     renderDashboard(data); renderWatchlist(); renderScanner(); renderPortfolio(); renderJournal(); renderAirdrop();
+    renderDcaPlans(); checkAlerts(); renderAlerts();
   }
   function refresh() {
     $('statusLine').textContent = 'Đang tải dữ liệu thị trường…';
     window.CoinAPI.getMarketData().then(renderAll).catch(function (err) {
       $('statusLine').textContent = 'Lỗi tải dữ liệu: ' + err.message;
     });
+    loadFunding();
+    loadTrending();
+  }
+
+  // ---------- tabs ----------
+  var TABS = ['overview', 'scanner', 'futures', 'portfolio', 'tools', 'journal', 'airdrop'];
+  function activateTab(name) {
+    if (TABS.indexOf(name) === -1) name = 'overview';
+    document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === name); });
+    document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-panel') === name); });
+    save(LS.tab, name);
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     $('refreshBtn').addEventListener('click', refresh);
+    document.querySelectorAll('.tab-btn').forEach(function (b) {
+      b.addEventListener('click', function () { activateTab(b.getAttribute('data-tab')); });
+    });
+    activateTab(load(LS.tab, 'overview'));
+    setInterval(tickFundingCountdowns, 1000);
+    $('alertForm').addEventListener('submit', function (e) {
+      e.preventDefault(); var c = findCoin($('alertCoin').value);
+      if (!c) { alert('Không tìm thấy coin trong top 100. Thử nhập CoinGecko id, vd: solana, bitcoin, ethereum.'); return; }
+      var target = parseFloat($('alertPrice').value);
+      if (!(target > 0)) { alert('Giá mục tiêu phải lớn hơn 0.'); return; }
+      var alerts = getAlerts();
+      alerts.push({ coinId: c.id, target: target, dir: $('alertDir').value, triggered: false, createdAt: new Date().toISOString() });
+      save(LS.alerts, alerts); e.target.reset(); renderAlerts();
+    });
+    $('notifyBtn').addEventListener('click', function () {
+      try {
+        if (!('Notification' in window)) { alert('Trình duyệt này không hỗ trợ Notification.'); return; }
+        Notification.requestPermission().then(function (p) {
+          alert(p === 'granted' ? 'Đã bật thông báo — cảnh báo kích hoạt sẽ hiện thông báo trình duyệt.' : 'Quyền thông báo chưa được cấp (' + p + '). Cảnh báo vẫn được đánh dấu trong trang.');
+        }).catch(function () { /* bỏ qua */ });
+      } catch (err) { /* Notification không khả dụng — không để lỗi phá app */ }
+    });
+    $('dcaPlanForm').addEventListener('submit', function (e) {
+      e.preventDefault(); var c = findCoin($('planCoin').value);
+      var coin = c ? c.id : $('planCoin').value.trim(); if (!coin) return;
+      var amount = parseFloat($('planAmount').value);
+      if (!(amount > 0)) { alert('Số tiền mỗi lần mua phải lớn hơn 0.'); return; }
+      var plans = getDcaPlans();
+      plans.push({ coin: coin, amount: amount, freq: $('planFreq').value, start: $('planStart').value });
+      save(LS.dcaPlan, plans); e.target.reset(); renderDcaPlans();
+    });
     $('addCoinForm').addEventListener('submit', function (e) {
       e.preventDefault(); var c = findCoin($('coinSearch').value);
       if (!c) { alert('Không tìm thấy coin trong top 100. Thử nhập CoinGecko id, vd: solana, bitcoin, ethereum.'); return; }
@@ -256,7 +424,9 @@
       var rp = e.target.getAttribute && e.target.getAttribute('data-remove-pf');
       if (rp != null && rp !== undefined && e.target.hasAttribute('data-remove-pf')) { var pf = getPf(); pf.splice(Number(rp), 1); save(LS.pf, pf); renderPortfolio(); return; }
       if (e.target.hasAttribute && e.target.hasAttribute('data-remove-trade')) { var j = getJournal(); j.splice(Number(e.target.getAttribute('data-remove-trade')), 1); save(LS.journal, j); renderJournal(); return; }
-      if (e.target.hasAttribute && e.target.hasAttribute('data-remove-air')) { var a = getAir(); a.splice(Number(e.target.getAttribute('data-remove-air')), 1); save(LS.air, a); renderAirdrop(); }
+      if (e.target.hasAttribute && e.target.hasAttribute('data-remove-air')) { var a = getAir(); a.splice(Number(e.target.getAttribute('data-remove-air')), 1); save(LS.air, a); renderAirdrop(); return; }
+      if (e.target.hasAttribute && e.target.hasAttribute('data-remove-alert')) { var al = getAlerts(); al.splice(Number(e.target.getAttribute('data-remove-alert')), 1); save(LS.alerts, al); renderAlerts(); return; }
+      if (e.target.hasAttribute && e.target.hasAttribute('data-remove-plan')) { var pl = getDcaPlans(); pl.splice(Number(e.target.getAttribute('data-remove-plan')), 1); save(LS.dcaPlan, pl); renderDcaPlans(); }
     });
     document.body.addEventListener('change', function (e) {
       if (e.target.hasAttribute && e.target.hasAttribute('data-air-status')) {
@@ -265,6 +435,7 @@
       }
     });
 
+    renderAlerts(); renderDcaPlans();
     refresh();
   });
 })();
